@@ -22,7 +22,7 @@ import { api, errText } from '@/lib/api'
 import { generateId } from '@/lib/utils'
 import type { AlertEvent, AlertKind, AppSettings, ConnState, Library, ServerPublic } from '@/electron/types'
 
-const version = '0.7.0'
+const version = '0.7.1'
 
 type Tool = 'overview' | 'files' | 'processes' | 'services' | 'docker' | 'logs' | 'deploy'
 type Tab = { id: string; kind: 'home' | 'terminal' | Tool; serverId?: string; container?: string }

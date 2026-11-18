@@ -1,6 +1,6 @@
 {
   "name": "quence-infra",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Infrastructure control center: servers, SSH terminals and live monitoring",
   "author": "Marijanoo",
   "main": "dist-electron/main.js",

@@ -26,7 +26,7 @@ export class Sftp {
     let s = this.sessions.get(id)
     if (!s) {
       s = new Promise<SFTPWrapper>((resolve, reject) => client.sftp((err, sftp) => {
-        if (!err) { resolve(sftp); return }
+        if (!err) { sftp.on('error', () => { /* followed by close */ }); resolve(sftp); return }
         reject(/subsystem/i.test(err.message) ? new Error('This server doesn’t offer SFTP, so files can’t be browsed (the SSH server has no sftp subsystem)') : err)
       }))
       this.sessions.set(id, s)

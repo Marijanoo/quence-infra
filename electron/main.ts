@@ -19,12 +19,14 @@ import { Watcher } from './watcher'
 import { dockerBin, sh, assertName, streamCommand } from './commands'
 import type { AlertEvent, AppSettings, FleetSample, ConnEvent, ContainerAction, ServerInput, ServiceAction, StreamRequest } from './types'
 
-// A dropped connection can surface as an EPIPE on a socket that is already closing.
+// A network error from a server (reset, timeout, a stray channel error) must never take the app
+// down: log it and carry on, the connection's close handler reports the drop.
 process.on('uncaughtException', (err: any) => {
-  if (err?.code === 'EPIPE' || err?.code === 'ECONNRESET') return
-  throw err
+  console.error('Uncaught error (ignored):', err?.stack || err)
 })
-process.on('unhandledRejection', () => {})
+process.on('unhandledRejection', reason => {
+  console.error('Unhandled rejection (ignored):', reason)
+})
 
 if (process.platform === 'win32') app.setAppUserModelId('com.quence.infra')
 
