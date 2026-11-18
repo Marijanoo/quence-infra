@@ -151,3 +151,47 @@ export interface ServiceRow {
 }
 
 export type ServiceAction = 'start' | 'stop' | 'restart' | 'enable' | 'disable'
+
+// ── Docker ───────────────────────────────────────────────────────────────────
+
+export interface DockerContainer {
+  id: string
+  name: string
+  image: string
+  state: string        // running, exited, paused, restarting, created, dead
+  status: string       // "Up 3 hours (healthy)"
+  ports: string
+  created: string
+  project: string      // docker compose project, '' when none
+  workdir: string
+  configFiles: string
+}
+
+export interface DockerStat { id: string; cpu: number; memPct: number; mem: string; net: string; block: string }
+export interface DockerImage { id: string; repo: string; tag: string; size: string; created: string; inUse: boolean }
+export interface DockerVolume { name: string; driver: string; mountpoint: string }
+export interface DockerNetwork { id: string; name: string; driver: string; scope: string }
+
+export interface DockerSnapshot {
+  containers: DockerContainer[]
+  images: DockerImage[]
+  volumes: DockerVolume[]
+  networks: DockerNetwork[]
+  version: string
+  sudo: boolean
+}
+
+export type ContainerAction = 'start' | 'stop' | 'restart' | 'pause' | 'unpause' | 'kill' | 'remove'
+
+// ── Output streams (logs, long-running commands) ─────────────────────────────
+
+export type StreamRequest =
+  | { kind: 'docker-logs'; container: string; tail: number }
+  | { kind: 'docker-pull'; image: string }
+  | { kind: 'compose'; action: 'up' | 'down' | 'restart' | 'stop' | 'pull' | 'logs'; project: string; workdir: string; configFiles: string }
+  | { kind: 'journal'; unit: string; priority: string; lines: number }
+  | { kind: 'file'; path: string; lines: number }
+  | { kind: 'script'; command: string; cwd: string }
+
+export interface StreamData { streamId: string; data: string }
+export interface StreamEnd { streamId: string; code: number | null; error?: string }

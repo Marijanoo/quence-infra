@@ -22,9 +22,11 @@ export class Shells {
     private onClose: (sessionId: string, reason?: string) => void,
   ) {}
 
-  async open(sessionId: string, serverId: string, cols: number, rows: number) {
+  async open(sessionId: string, serverId: string, cols: number, rows: number, command?: string) {
     this.close(sessionId)
-    const stream = await this.conns.shell(serverId, Math.max(2, cols), Math.max(2, rows))
+    const stream = command
+      ? await this.conns.pty(serverId, command, Math.max(2, cols), Math.max(2, rows))
+      : await this.conns.shell(serverId, Math.max(2, cols), Math.max(2, rows))
     const s: Session = { serverId, stream, buf: '', timer: null }
     this.sessions.set(sessionId, s)
     stream.setEncoding('utf8')

@@ -10,7 +10,10 @@ import { Monitors } from './monitor'
 import { Shells } from './shells'
 import { Sftp } from './sftp'
 import { System } from './system'
-import type { ConnEvent, ServerInput, ServiceAction } from './types'
+import { Docker } from './docker'
+import { Streams } from './streams'
+import { dockerBin, sh, assertName, streamCommand } from './commands'
+import type { ConnEvent, ContainerAction, ServerInput, ServiceAction, StreamRequest } from './types'
 
 // A dropped connection can surface as an EPIPE on a socket that is already closing.
 process.on('uncaughtException', (err: any) => {
@@ -68,6 +71,12 @@ const shells = new Shells(
 
 const sftp = new Sftp(conns)
 const system = new System(conns)
+const docker = new Docker(conns)
+const streams = new Streams(
+  conns,
+  (streamId, data) => send('stream:data', { streamId, data }),
+  (streamId, code, error) => send('stream:end', { streamId, code, error }),
+)
 
 const windowStatePath = () => path.join(app.getPath('userData'), 'window-state.json')
 
@@ -225,6 +234,13 @@ function registerIpc() {
 
   ipcMain.handle('term:open', (_e, a: { sessionId: string; serverId: string; cols: number; rows: number }) =>
     shells.open(a.sessionId, a.serverId, a.cols, a.rows))
+  // A shell inside a container
+  ipcMain.handle('term:open-container', async (_e, a: { sessionId: string; serverId: string; container: string; cols: number; rows: number }) => {
+    await docker.detect(a.serverId)
+    const c = sh(assertName(a.container, 'container'))
+    const cmd = `${dockerBin(docker.isSudo(a.serverId))} exec -it ${c} sh -c 'command -v bash >/dev/null 2>&1 && exec bash || exec sh'`
+    await shells.open(a.sessionId, a.serverId, a.cols, a.rows, cmd)
+  })
   ipcMain.on('term:write', (_e, a: { sessionId: string; data: string }) => shells.write(a.sessionId, a.data))
   ipcMain.on('term:resize', (_e, a: { sessionId: string; cols: number; rows: number }) => shells.resize(a.sessionId, a.cols, a.rows))
   ipcMain.on('term:close', (_e, a: { sessionId: string }) => shells.close(a.sessionId))
@@ -267,6 +283,22 @@ function registerIpc() {
   ipcMain.handle('system:services', (_e, id: string) => system.services(id))
   ipcMain.handle('system:service-action', (_e, id: string, name: string, action: ServiceAction) => system.serviceAction(id, name, action))
 
+  ipcMain.handle('docker:snapshot', (_e, id: string) => docker.snapshot(id))
+  ipcMain.handle('docker:stats', (_e, id: string) => docker.stats(id))
+  ipcMain.handle('docker:inspect', (_e, id: string, target: string) => docker.inspect(id, target))
+  ipcMain.handle('docker:container', (_e, id: string, target: string, action: ContainerAction) => docker.container(id, target, action))
+  ipcMain.handle('docker:remove-image', (_e, id: string, image: string) => docker.removeImage(id, image))
+  ipcMain.handle('docker:prune-images', (_e, id: string) => docker.pruneImages(id))
+  ipcMain.handle('docker:remove-volume', (_e, id: string, name: string) => docker.removeVolume(id, name))
+  ipcMain.handle('docker:remove-network', (_e, id: string, name: string) => docker.removeNetwork(id, name))
+
+  ipcMain.handle('stream:start', async (_e, a: { streamId: string; serverId: string; request: StreamRequest }) => {
+    const usesDocker = a.request.kind === 'docker-logs' || a.request.kind === 'docker-pull' || a.request.kind === 'compose'
+    if (usesDocker) await docker.detect(a.serverId)
+    await streams.start(a.streamId, a.serverId, streamCommand(a.request, usesDocker && docker.isSudo(a.serverId)))
+  })
+  ipcMain.on('stream:stop', (_e, streamId: string) => streams.stop(streamId))
+
   ipcMain.handle('monitor:start', (_e, id: string) => monitors.start(id))
   ipcMain.on('monitor:stop', (_e, id: string) => monitors.stop(id))
   ipcMain.on('monitor:retry', (_e, id: string) => monitors.retry(id))
@@ -279,6 +311,7 @@ app.on('ready', () => {
 
 app.on('before-quit', () => {
   monitors.stopAll()
+  streams.stopAll()
   shells.closeAll()
   conns.disconnectAll()
 })

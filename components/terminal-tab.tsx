@@ -29,7 +29,7 @@ type Phase = 'connecting' | 'live' | 'ended' | 'failed'
 
 // One interactive shell on a server. The tab stays mounted while it is in the background, so the
 // scrollback and the running session survive switching tabs.
-export function TerminalTab({ sessionId, serverId, active }: { sessionId: string; serverId: string; active: boolean }) {
+export function TerminalTab({ sessionId, serverId, container, active }: { sessionId: string; serverId: string; container?: string; active: boolean }) {
   const host = useRef<HTMLDivElement>(null)
   const term = useRef<Terminal | null>(null)
   const fit = useRef<FitAddon | null>(null)
@@ -44,7 +44,7 @@ export function TerminalTab({ sessionId, serverId, active }: { sessionId: string
     setP('connecting'); setError('')
     try {
       fit.current?.fit()
-      await api().term.open(sessionId, serverId, t.cols, t.rows)
+      await (container ? api().term.openContainer(sessionId, serverId, container, t.cols, t.rows) : api().term.open(sessionId, serverId, t.cols, t.rows))
       setP('live')
       t.focus()
     } catch (e) {
@@ -112,7 +112,7 @@ export function TerminalTab({ sessionId, serverId, active }: { sessionId: string
       term.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, serverId])
+  }, [sessionId, serverId, container])
 
   useEffect(() => {
     if (!active) return

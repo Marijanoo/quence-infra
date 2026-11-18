@@ -1,4 +1,4 @@
-import type { FileList, ProcessRow, ServiceAction, ServiceRow, TransferProgress, ConnEvent, ConnState, Library, MonitorInfo, MonitorSample, MonitorStart, ServerInput, ServerPublic } from '@/electron/types'
+import type { ContainerAction, DockerSnapshot, DockerStat, StreamData, StreamEnd, StreamRequest, FileList, ProcessRow, ServiceAction, ServiceRow, TransferProgress, ConnEvent, ConnState, Library, MonitorInfo, MonitorSample, MonitorStart, ServerInput, ServerPublic } from '@/electron/types'
 
 export {}
 
@@ -32,6 +32,7 @@ declare global {
         open: (sessionId: string, serverId: string, cols: number, rows: number) => Promise<void>
         write: (sessionId: string, data: string) => void
         resize: (sessionId: string, cols: number, rows: number) => void
+        openContainer: (sessionId: string, serverId: string, container: string, cols: number, rows: number) => Promise<void>
         close: (sessionId: string) => void
         onData: (cb: (e: { sessionId: string; data: string }) => void) => () => void
         onClose: (cb: (e: { sessionId: string }) => void) => () => void
@@ -50,6 +51,22 @@ declare global {
         reveal: (p: string) => Promise<void>
         pathOf: (f: File) => string
         onProgress: (cb: (e: TransferProgress) => void) => () => void
+      }
+      docker: {
+        snapshot: (id: string) => Promise<DockerSnapshot>
+        stats: (id: string) => Promise<DockerStat[]>
+        inspect: (id: string, target: string) => Promise<string>
+        container: (id: string, target: string, action: ContainerAction) => Promise<void>
+        removeImage: (id: string, image: string) => Promise<void>
+        pruneImages: (id: string) => Promise<void>
+        removeVolume: (id: string, name: string) => Promise<void>
+        removeNetwork: (id: string, name: string) => Promise<void>
+      }
+      stream: {
+        start: (streamId: string, serverId: string, request: StreamRequest) => Promise<void>
+        stop: (streamId: string) => void
+        onData: (cb: (e: StreamData) => void) => () => void
+        onEnd: (cb: (e: StreamEnd) => void) => () => void
       }
       system: {
         processes: (id: string) => Promise<ProcessRow[]>

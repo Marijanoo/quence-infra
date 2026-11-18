@@ -186,6 +186,14 @@ export class Connections {
     })
   }
 
+  // A command in a terminal of its own (docker exec -it …)
+  async pty(id: string, command: string, cols: number, rows: number): Promise<ClientChannel> {
+    const client = await this.connect(id)
+    return new Promise((resolve, reject) => {
+      client.exec(command, { pty: { term: 'xterm-256color', cols, rows, width: 0, height: 0, modes: {} } }, (err, stream) => (err ? reject(err) : resolve(stream)))
+    })
+  }
+
   async shell(id: string, cols: number, rows: number): Promise<ClientChannel> {
     const client = await this.connect(id)
     return new Promise((resolve, reject) => {
