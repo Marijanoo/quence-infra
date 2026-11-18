@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Home as HomeIcon, Activity, Boxes, Cog, FolderOpen, ListTree, TerminalSquare, X } from 'lucide-react'
+import { Home as HomeIcon, Activity, Boxes, Cog, FolderOpen, ListTree, ScrollText, TerminalSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { TitleBar } from '@/components/title-bar'
 import { Sidebar } from '@/components/sidebar'
@@ -12,18 +12,19 @@ import { FilesTab } from '@/components/files-tab'
 import { ProcessesTab } from '@/components/processes-tab'
 import { ServicesTab } from '@/components/services-tab'
 import { DockerTab } from '@/components/docker-tab'
+import { LogsTab } from '@/components/logs-tab'
 import { ServerDialog } from '@/components/server-dialog'
 import { ConfirmDialog, ContextMenu, PromptDialog, type MenuItem } from '@/components/dialog'
 import { api, errText } from '@/lib/api'
 import { generateId } from '@/lib/utils'
 import type { ConnState, Library, ServerPublic } from '@/electron/types'
 
-const version = '0.3.0'
+const version = '0.4.0'
 
-type Tool = 'overview' | 'files' | 'processes' | 'services' | 'docker'
+type Tool = 'overview' | 'files' | 'processes' | 'services' | 'docker' | 'logs'
 type Tab = { id: string; kind: 'home' | 'terminal' | Tool; serverId?: string; container?: string }
 
-const TOOL_LABEL: Record<Tool, string> = { overview: '', files: 'Files', processes: 'Processes', services: 'Services', docker: 'Docker' }
+const TOOL_LABEL: Record<Tool, string> = { overview: '', files: 'Files', processes: 'Processes', services: 'Services', docker: 'Docker', logs: 'Logs' }
 
 type Dialog =
   | { kind: 'server'; server?: ServerPublic; group?: string }
@@ -115,6 +116,7 @@ export default function App() {
         { label: 'Processes', onClick: () => openTool(s, 'processes') },
         { label: 'Services', onClick: () => openTool(s, 'services') },
         { label: 'Docker', onClick: () => openTool(s, 'docker') },
+        { label: 'Logs', onClick: () => openTool(s, 'logs') },
         st === 'online' ? { label: 'Disconnect', onClick: () => void api().conn.disconnect(s.id) }
           : { label: 'Connect', onClick: () => void api().conn.connect(s.id).catch(() => { /* shown on the overview */ }), disabled: st === 'connecting' },
         { label: '', onClick: () => {}, separator: true },
@@ -168,7 +170,7 @@ export default function App() {
               return (
                 <div key={t.id} onClick={() => activate(t.id)} onAuxClick={e => { if (e.button === 1) closeTab(t.id) }}
                   className={`group flex shrink-0 cursor-pointer items-center gap-2 border-r border-border px-3 text-sm transition-colors ${active ? 'bg-background text-foreground shadow-[inset_0_-2px_0_var(--primary)]' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'}`}>
-                  {t.kind === 'home' ? <HomeIcon className="h-3.5 w-3.5" /> : t.kind === 'overview' ? <Activity className="h-3.5 w-3.5" /> : t.kind === 'files' ? <FolderOpen className="h-3.5 w-3.5" /> : t.kind === 'processes' ? <ListTree className="h-3.5 w-3.5" /> : t.kind === 'services' ? <Cog className="h-3.5 w-3.5" /> : t.kind === 'docker' ? <Boxes className="h-3.5 w-3.5" /> : <TerminalSquare className="h-3.5 w-3.5" />}
+                  {t.kind === 'home' ? <HomeIcon className="h-3.5 w-3.5" /> : t.kind === 'overview' ? <Activity className="h-3.5 w-3.5" /> : t.kind === 'files' ? <FolderOpen className="h-3.5 w-3.5" /> : t.kind === 'processes' ? <ListTree className="h-3.5 w-3.5" /> : t.kind === 'services' ? <Cog className="h-3.5 w-3.5" /> : t.kind === 'docker' ? <Boxes className="h-3.5 w-3.5" /> : t.kind === 'logs' ? <ScrollText className="h-3.5 w-3.5" /> : <TerminalSquare className="h-3.5 w-3.5" />}
                   <span className="max-w-40 truncate">{label}</span>
                   {t.kind !== 'home' && (
                     <button onClick={e => { e.stopPropagation(); closeTab(t.id) }} aria-label="Close tab"
@@ -189,6 +191,9 @@ export default function App() {
                 return s ? <div key={t.id} className="absolute inset-0" style={{ display: active ? 'block' : 'none' }}><TerminalTab sessionId={t.id} serverId={s.id} container={t.container} active={active} /></div> : null
               }
               // Files keep their place (and any running transfers) while in the background
+              if (t.kind === 'logs') {
+                return s ? <div key={t.id} className="absolute inset-0" style={{ display: active ? 'block' : 'none' }}><LogsTab serverId={s.id} /></div> : null
+              }
               if (t.kind === 'docker') {
                 return s ? <div key={t.id} className="absolute inset-0" style={{ display: active ? 'block' : 'none' }}><DockerTab serverId={s.id} onShell={c => openTerminal(s, c)} /></div> : null
               }
