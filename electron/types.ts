@@ -193,5 +193,31 @@ export type StreamRequest =
   | { kind: 'file'; path: string; lines: number }
   | { kind: 'script'; command: string; cwd: string }
 
-export interface StreamData { streamId: string; data: string }
+export interface StreamData { streamId: string; data: string; offset: number }
 export interface StreamEnd { streamId: string; code: number | null; error?: string }
+
+// ── Deployments ──────────────────────────────────────────────────────────────
+
+export interface DeploymentDef {
+  id: string
+  serverId: string
+  name: string
+  workdir: string
+  script: string
+}
+
+export type RunStatus = 'running' | 'success' | 'failed' | 'cancelled' | 'interrupted'
+
+export interface DeploymentRun {
+  id: string
+  deploymentId: string
+  serverId: string
+  name: string          // the deployment's name when it ran
+  startedAt: number     // ms
+  finishedAt: number | null
+  status: RunStatus
+  code: number | null
+}
+
+export interface DeploymentList { defs: DeploymentDef[]; runs: DeploymentRun[] }
+export interface RunLog { text: string; length: number; run: DeploymentRun | null }

@@ -70,6 +70,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onData: (cb: (e: unknown) => void) => on('stream:data', cb),
     onEnd: (cb: (e: unknown) => void) => on('stream:end', cb),
   },
+  deploy: {
+    list: (serverId: string) => ipcRenderer.invoke('deploy:list', serverId),
+    save: (def: unknown) => ipcRenderer.invoke('deploy:save', def),
+    remove: (id: string) => ipcRenderer.invoke('deploy:remove', id),
+    run: (id: string) => ipcRenderer.invoke('deploy:run', id),
+    cancel: (runId: string) => ipcRenderer.send('deploy:cancel', runId),
+    log: (runId: string) => ipcRenderer.invoke('deploy:log', runId),
+    onChanged: (cb: (e: { serverId: string }) => void) => on('deploy:changed', cb),
+  },
   system: {
     processes: (id: string) => ipcRenderer.invoke('system:processes', id),
     kill: (id: string, pid: number, force: boolean) => ipcRenderer.invoke('system:kill', id, pid, force),

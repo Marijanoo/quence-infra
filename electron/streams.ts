@@ -7,7 +7,15 @@ import type { Connections } from './ssh'
 const FLUSH_MS = 40
 const MAX_CHUNK = 64 * 1024
 
+// Something that also wants the output (the deployment history records it)
+export interface Tap {
+  data(chunk: string): void
+  end(code: number | null, error?: string): void
+}
+
 interface Running {
+  sent: number
+  tap?: Tap
   channel: ClientChannel | null
   buf: string
   timer: NodeJS.Timeout | null
@@ -19,27 +27,30 @@ export class Streams {
 
   constructor(
     private conns: Connections,
-    private onData: (streamId: string, data: string) => void,
+    private onData: (streamId: string, data: string, offset: number) => void,
     private onEnd: (streamId: string, code: number | null, error?: string) => void,
   ) {}
 
-  async start(streamId: string, serverId: string, command: string): Promise<void> {
+  async start(streamId: string, serverId: string, command: string, tap?: Tap): Promise<void> {
     this.stop(streamId)
-    const r: Running = { channel: null, buf: '', timer: null, stopped: false }
+    const r: Running = { sent: 0, tap, channel: null, buf: '', timer: null, stopped: false }
     this.running.set(streamId, r)
     const flush = () => {
       r.timer = null
       if (!r.buf) return
       const d = r.buf
       r.buf = ''
-      this.onData(streamId, d)
+      const offset = r.sent
+      r.sent += d.length
+      r.tap?.data(d)
+      this.onData(streamId, d, offset)
     }
     const finish = (code: number | null, error?: string) => {
       if (r.timer) clearTimeout(r.timer)
       flush()
       if (this.running.get(streamId) === r) {
         this.running.delete(streamId)
-        if (!r.stopped) this.onEnd(streamId, code, error)
+        if (!r.stopped) { r.tap?.end(code, error); this.onEnd(streamId, code, error) }
       }
     }
     try {

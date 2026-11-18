@@ -1,4 +1,4 @@
-import type { ContainerAction, DockerSnapshot, DockerStat, StreamData, StreamEnd, StreamRequest, FileList, ProcessRow, ServiceAction, ServiceRow, TransferProgress, ConnEvent, ConnState, Library, MonitorInfo, MonitorSample, MonitorStart, ServerInput, ServerPublic } from '@/electron/types'
+import type { DeploymentDef, DeploymentList, DeploymentRun, RunLog, ContainerAction, DockerSnapshot, DockerStat, StreamData, StreamEnd, StreamRequest, FileList, ProcessRow, ServiceAction, ServiceRow, TransferProgress, ConnEvent, ConnState, Library, MonitorInfo, MonitorSample, MonitorStart, ServerInput, ServerPublic } from '@/electron/types'
 
 export {}
 
@@ -67,6 +67,15 @@ declare global {
         stop: (streamId: string) => void
         onData: (cb: (e: StreamData) => void) => () => void
         onEnd: (cb: (e: StreamEnd) => void) => () => void
+      }
+      deploy: {
+        list: (serverId: string) => Promise<DeploymentList>
+        save: (def: Omit<DeploymentDef, 'id'> & { id?: string }) => Promise<DeploymentDef>
+        remove: (id: string) => Promise<void>
+        run: (id: string) => Promise<DeploymentRun>
+        cancel: (runId: string) => void
+        log: (runId: string) => Promise<RunLog>
+        onChanged: (cb: (e: { serverId: string }) => void) => () => void
       }
       system: {
         processes: (id: string) => Promise<ProcessRow[]>

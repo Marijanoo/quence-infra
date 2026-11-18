@@ -18,9 +18,11 @@ const lineTone = (l: string) =>
 
 // The live output of a command on a server: container logs, journalctl, a deployment script…
 // Starts when mounted, stops when closed. Keeps the last few thousand lines.
-export function OutputView({ serverId, request, onEnd, follow = true, emptyHint }: {
+export function OutputView({ serverId, request, attach, onEnd, follow = true, emptyHint }: {
   serverId: string
-  request: StreamRequest
+  request?: StreamRequest
+  // Show a deployment run that is already going (or finished) instead of starting a command
+  attach?: string
   onEnd?: (code: number | null) => void
   follow?: boolean
   emptyHint?: string
@@ -37,7 +39,7 @@ export function OutputView({ serverId, request, onEnd, follow = true, emptyHint 
   const pausedRef = useRef(false)
   const held = useRef<string[]>([])
   const idRef = useRef('')
-  const reqKey = JSON.stringify(request)
+  const reqKey = JSON.stringify(request ?? null)
   const onEndRef = useRef(onEnd)
   onEndRef.current = onEnd
 
@@ -51,18 +53,42 @@ export function OutputView({ serverId, request, onEnd, follow = true, emptyHint 
   }, [])
 
   useEffect(() => {
-    const id = generateId()
+    const id = attach ?? generateId()
     idRef.current = id
     setLines([]); setExit(null); setRunning(true); partial.current = ''; held.current = []
+    if (attach) {
+      let base: number | null = null
+      const pending: { data: string; offset: number }[] = []
+      const offD = api().stream.onData(e => {
+        if (e.streamId !== attach) return
+        if (base === null) pending.push(e)
+        else if (e.offset >= base) append(e.data)
+      })
+      const offE = api().stream.onEnd(e => {
+        if (e.streamId !== attach) return
+        if (partial.current) { const rest = partial.current; partial.current = ''; setLines(p => [...p, rest]) }
+        setRunning(false); setExit({ code: e.code, error: e.error }); onEndRef.current?.(e.code)
+      })
+      void api().deploy.log(attach).then(r => {
+        base = r.length
+        append(r.text)
+        for (const p of pending) if (p.offset >= r.length) append(p.data)
+        if (r.run && r.run.status !== 'running') {
+          if (partial.current) { const rest = partial.current; partial.current = ''; setLines(p => [...p, rest]) }
+          setRunning(false); setExit({ code: r.run.code })
+        }
+      })
+      return () => { offD(); offE() }
+    }
     const offData = api().stream.onData(e => { if (e.streamId === id) append(e.data) })
     const offEnd = api().stream.onEnd(e => {
       if (e.streamId !== id) return
       if (partial.current) { const rest = partial.current; partial.current = ''; setLines(p => [...p, rest]) }
       setRunning(false); setExit({ code: e.code, error: e.error }); onEndRef.current?.(e.code)
     })
-    api().stream.start(id, serverId, JSON.parse(reqKey)).catch(e => { setRunning(false); setExit({ code: null, error: errText(e) }) })
+    api().stream.start(id, serverId, JSON.parse(reqKey) as StreamRequest).catch(e => { setRunning(false); setExit({ code: null, error: errText(e) }) })
     return () => { offData(); offEnd(); api().stream.stop(id) }
-  }, [serverId, reqKey, append])
+  }, [serverId, reqKey, attach, append])
 
   useEffect(() => { if (stick && follow && box.current) box.current.scrollTop = box.current.scrollHeight }, [lines, stick, follow])
 

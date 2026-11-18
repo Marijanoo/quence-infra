@@ -12,6 +12,7 @@ import { Sftp } from './sftp'
 import { System } from './system'
 import { Docker } from './docker'
 import { Streams } from './streams'
+import { Deployments } from './deployments'
 import { dockerBin, sh, assertName, streamCommand } from './commands'
 import type { ConnEvent, ContainerAction, ServerInput, ServiceAction, StreamRequest } from './types'
 
@@ -74,9 +75,12 @@ const system = new System(conns)
 const docker = new Docker(conns)
 const streams = new Streams(
   conns,
-  (streamId, data) => send('stream:data', { streamId, data }),
+  (streamId, data, offset) => send('stream:data', { streamId, data, offset }),
   (streamId, code, error) => send('stream:end', { streamId, code, error }),
 )
+
+// Created once the app is ready (it needs the data folder)
+let deployments: Deployments
 
 const windowStatePath = () => path.join(app.getPath('userData'), 'window-state.json')
 
@@ -299,12 +303,20 @@ function registerIpc() {
   })
   ipcMain.on('stream:stop', (_e, streamId: string) => streams.stop(streamId))
 
+  ipcMain.handle('deploy:list', (_e, serverId: string) => deployments.list(serverId))
+  ipcMain.handle('deploy:save', (_e, def: Parameters<Deployments['saveDef']>[0]) => deployments.saveDef(def))
+  ipcMain.handle('deploy:remove', (_e, id: string) => deployments.remove(id))
+  ipcMain.handle('deploy:run', (_e, id: string) => deployments.run(id))
+  ipcMain.on('deploy:cancel', (_e, runId: string) => deployments.cancel(runId))
+  ipcMain.handle('deploy:log', (_e, runId: string) => deployments.log(runId))
+
   ipcMain.handle('monitor:start', (_e, id: string) => monitors.start(id))
   ipcMain.on('monitor:stop', (_e, id: string) => monitors.stop(id))
   ipcMain.on('monitor:retry', (_e, id: string) => monitors.retry(id))
 }
 
 app.on('ready', () => {
+  deployments = new Deployments(app.getPath('userData'), streams, serverId => send('deploy:changed', { serverId }))
   registerIpc()
   void createWindow()
 })
