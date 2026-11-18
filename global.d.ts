@@ -1,4 +1,4 @@
-import type { DeploymentDef, DeploymentList, DeploymentRun, RunLog, ContainerAction, DockerSnapshot, DockerStat, StreamData, StreamEnd, StreamRequest, FileList, ProcessRow, ServiceAction, ServiceRow, TransferProgress, ConnEvent, ConnState, Library, MonitorInfo, MonitorSample, MonitorStart, ServerInput, ServerPublic } from '@/electron/types'
+import type { AlertEvent, AlertKind, AppSettings, DeploymentDef, DeploymentList, DeploymentRun, RunLog, ContainerAction, DockerSnapshot, DockerStat, StreamData, StreamEnd, StreamRequest, FileList, ProcessRow, ServiceAction, ServiceRow, TransferProgress, ConnEvent, ConnState, Library, MonitorInfo, MonitorSample, MonitorStart, ServerInput, ServerPublic } from '@/electron/types'
 
 export {}
 
@@ -67,6 +67,19 @@ declare global {
         stop: (streamId: string) => void
         onData: (cb: (e: StreamData) => void) => () => void
         onEnd: (cb: (e: StreamEnd) => void) => () => void
+      }
+      settings: {
+        get: () => Promise<AppSettings>
+        set: (patch: Partial<AppSettings>) => Promise<AppSettings>
+      }
+      alerts: {
+        list: () => Promise<AlertEvent[]>
+        markRead: () => Promise<void>
+        clear: () => Promise<void>
+        test: () => Promise<{ desktop: boolean; webhook: string }>
+        active: () => Promise<Record<string, AlertKind[]>>
+        onEvents: (cb: (e: AlertEvent[]) => void) => () => void
+        onActive: (cb: (e: { serverId: string; kinds: AlertKind[] }) => void) => () => void
       }
       deploy: {
         list: (serverId: string) => Promise<DeploymentList>

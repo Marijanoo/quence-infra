@@ -68,7 +68,7 @@ export function Overview({ server, state, onTerminal, onTool }: { server: Server
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1400px] space-y-4 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-[16rem] flex-1">
             <div className="flex items-center gap-2">
               <StatusDot status={state.status} />
               <h1 className="truncate text-lg font-semibold">{server.name}</h1>

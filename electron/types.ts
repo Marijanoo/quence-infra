@@ -11,6 +11,7 @@ export interface ServerInput {
   auth: AuthKind
   group: string
   note: string
+  watch?: boolean
   keyPath?: string
   // Secrets: undefined keeps what is stored, an empty string clears it.
   password?: string
@@ -29,6 +30,7 @@ export interface ServerPublic {
   group: string
   note: string
   keyPath: string
+  watch: boolean
   hasPassword: boolean
   hasPassphrase: boolean
   hasPrivateKey: boolean
@@ -221,3 +223,48 @@ export interface DeploymentRun {
 
 export interface DeploymentList { defs: DeploymentDef[]; runs: DeploymentRun[] }
 export interface RunLog { text: string; length: number; run: DeploymentRun | null }
+
+// ── Alerts and settings ──────────────────────────────────────────────────────
+
+export interface AlertSettings {
+  enabled: boolean
+  intervalSec: number
+  down: boolean
+  cpu: { on: boolean; pct: number; minutes: number }
+  mem: { on: boolean; pct: number }
+  disk: { on: boolean; pct: number }
+  services: boolean
+  desktop: boolean
+  webhook: string
+}
+
+export interface AppSettings {
+  alerts: AlertSettings
+  // Closing the window keeps the app running in the tray, so the servers stay watched
+  tray: boolean
+}
+
+export type AlertKind = 'down' | 'cpu' | 'mem' | 'disk' | 'services'
+export type AlertSeverity = 'critical' | 'warning' | 'ok'
+
+export interface AlertEvent {
+  id: string
+  t: number
+  serverId: string
+  serverName: string
+  kind: AlertKind
+  severity: AlertSeverity
+  title: string
+  message: string
+  read?: boolean
+}
+
+export interface Observation {
+  t: number
+  reachable: boolean
+  error?: string
+  cpu?: number
+  memPct?: number
+  disks?: { mount: string; pct: number }[]
+  failed?: string[]
+}

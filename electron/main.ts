@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
 import { randomUUID } from 'crypto'
@@ -13,8 +13,11 @@ import { System } from './system'
 import { Docker } from './docker'
 import { Streams } from './streams'
 import { Deployments } from './deployments'
+import { AlertEngine } from './alerts'
+import { SettingsStore } from './settings'
+import { Watcher } from './watcher'
 import { dockerBin, sh, assertName, streamCommand } from './commands'
-import type { ConnEvent, ContainerAction, ServerInput, ServiceAction, StreamRequest } from './types'
+import type { AlertEvent, AppSettings, ConnEvent, ContainerAction, ServerInput, ServiceAction, StreamRequest } from './types'
 
 // A dropped connection can surface as an EPIPE on a socket that is already closing.
 process.on('uncaughtException', (err: any) => {
@@ -40,11 +43,7 @@ let mainWindow: BrowserWindow | null = null
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    if (!mainWindow) return
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.focus()
-  })
+  app.on('second-instance', () => showWindow())
 }
 
 const send = (channel: string, payload: unknown) => {
@@ -79,8 +78,62 @@ const streams = new Streams(
   (streamId, code, error) => send('stream:end', { streamId, code, error }),
 )
 
-// Created once the app is ready (it needs the data folder)
+// Created once the app is ready (they need the data folder)
 let deployments: Deployments
+let settingsStore: SettingsStore
+let watcher: Watcher
+let tray: Tray | null = null
+let quitting = false
+const engine = new AlertEngine(() => settingsStore.get().alerts)
+
+async function postWebhook(url: string, text: string): Promise<void> {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, text }), signal: AbortSignal.timeout(8000) })
+  if (!res.ok) throw new Error(`The webhook answered ${res.status}`)
+}
+
+function notify(events: AlertEvent[]) {
+  const cfg = settingsStore.get().alerts
+  settingsStore.addAlerts(events)
+  send('alerts:events', events)
+  if (cfg.desktop && Notification.isSupported()) {
+    // Many at once (a server with several problems) become one notification
+    const shown = events.length > 3 ? [{ title: `${events.length} new alerts`, message: events.map(e => e.title).join('\n') }] : events
+    for (const e of shown) {
+      const n = new Notification({ title: e.title, body: e.message, icon: path.join(__dirname, '..', 'public', 'logo.png') })
+      n.on('click', () => showWindow())
+      n.show()
+    }
+  }
+  if (cfg.webhook) {
+    const text = events.map(e => `${e.severity === 'ok' ? '✅' : e.severity === 'critical' ? '🔴' : '⚠️'} ${e.title}: ${e.message}`).join('\n')
+    postWebhook(cfg.webhook, text).catch(err => console.error('webhook failed:', err instanceof Error ? err.message : err))
+  }
+}
+
+function showWindow() {
+  if (!mainWindow) { void createWindow(); return }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+function syncTray() {
+  const want = settingsStore.get().tray
+  if (!want && tray) { tray.destroy(); tray = null }
+  if (want && !tray) {
+    try {
+      const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'public', 'logo.png')).resize({ width: 22, height: 22 })
+      tray = new Tray(icon)
+      tray.setToolTip('QuenceInfra')
+      tray.setContextMenu(Menu.buildFromTemplate([
+        { label: 'Open QuenceInfra', click: () => showWindow() },
+        { type: 'separator' },
+        { label: 'Quit', click: () => { quitting = true; app.quit() } },
+      ]))
+      tray.on('click', () => showWindow())
+    } catch { tray = null }
+  }
+}
 
 const windowStatePath = () => path.join(app.getPath('userData'), 'window-state.json')
 
@@ -154,6 +207,10 @@ async function createWindow() {
   mainWindow.webContents.on('will-reload' as any, (event: Electron.Event) => event.preventDefault())
   mainWindow.on('resize', saveWindowState)
   mainWindow.on('move', saveWindowState)
+  // With the tray on, closing the window only hides it: the servers stay watched
+  mainWindow.on('close', e => {
+    if (!quitting && settingsStore.get().tray && tray) { e.preventDefault(); mainWindow?.hide() }
+  })
   mainWindow.on('closed', () => {
     saveWindowState()
     mainWindow = null
@@ -310,6 +367,26 @@ function registerIpc() {
   ipcMain.on('deploy:cancel', (_e, runId: string) => deployments.cancel(runId))
   ipcMain.handle('deploy:log', (_e, runId: string) => deployments.log(runId))
 
+  ipcMain.handle('settings:get', () => settingsStore.get())
+  ipcMain.handle('settings:set', (_e, patch: Partial<AppSettings>) => {
+    const s = settingsStore.set(patch)
+    syncTray()
+    watcher.start()
+    return s
+  })
+  ipcMain.handle('alerts:list', () => settingsStore.alerts())
+  ipcMain.handle('alerts:mark-read', () => settingsStore.markRead())
+  ipcMain.handle('alerts:clear', () => settingsStore.clearAlerts())
+  ipcMain.handle('alerts:test', async () => {
+    const cfg = settingsStore.get().alerts
+    const result: { desktop: boolean; webhook: string } = { desktop: Notification.isSupported() && cfg.desktop, webhook: cfg.webhook ? 'ok' : 'not set' }
+    const ev: AlertEvent = { id: randomUUID(), t: Date.now(), serverId: '', serverName: 'Test', kind: 'down', severity: 'ok', title: 'QuenceInfra test notification', message: 'Alerts reach you like this.' }
+    if (result.desktop) new Notification({ title: ev.title, body: ev.message }).show()
+    if (cfg.webhook) { try { await postWebhook(cfg.webhook, `✅ ${ev.title}: ${ev.message}`) } catch (err) { result.webhook = err instanceof Error ? err.message : String(err) } }
+    return result
+  })
+  ipcMain.handle('alerts:active', () => Object.fromEntries(store.library().servers.map(s => [s.id, engine.active(s.id)])))
+
   ipcMain.handle('monitor:start', (_e, id: string) => monitors.start(id))
   ipcMain.on('monitor:stop', (_e, id: string) => monitors.stop(id))
   ipcMain.on('monitor:retry', (_e, id: string) => monitors.retry(id))
@@ -317,11 +394,25 @@ function registerIpc() {
 
 app.on('ready', () => {
   deployments = new Deployments(app.getPath('userData'), streams, serverId => send('deploy:changed', { serverId }))
+  settingsStore = new SettingsStore(app.getPath('userData'))
+  watcher = new Watcher(
+    conns, engine,
+    () => store.library().servers.map(s => ({ id: s.id, name: s.name, watch: s.watch })),
+    () => settingsStore.get().alerts.intervalSec,
+    () => settingsStore.get().alerts.enabled,
+    notify,
+    (serverId, kinds) => send('alerts:active', { serverId, kinds }),
+  )
   registerIpc()
+  syncTray()
+  // Tests and screenshots don't want background checks
+  if (!process.env.INFRA_NO_WATCH) watcher.start()
   void createWindow()
 })
 
 app.on('before-quit', () => {
+  quitting = true
+  watcher?.stop()
   monitors.stopAll()
   streams.stopAll()
   shells.closeAll()
@@ -329,9 +420,7 @@ app.on('before-quit', () => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (process.platform !== 'darwin' && !(settingsStore?.get().tray && tray)) app.quit()
 })
 
-app.on('activate', () => {
-  if (mainWindow === null) void createWindow()
-})
+app.on('activate', () => showWindow())

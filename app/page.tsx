@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Home as HomeIcon, Activity, Boxes, Cog, FolderOpen, ListTree, Rocket, ScrollText, TerminalSquare, X } from 'lucide-react'
+import { Home as HomeIcon, Activity, Bell, Boxes, Cog, Settings2, FolderOpen, ListTree, Rocket, ScrollText, TerminalSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { TitleBar } from '@/components/title-bar'
 import { Sidebar } from '@/components/sidebar'
@@ -14,13 +14,15 @@ import { ServicesTab } from '@/components/services-tab'
 import { DockerTab } from '@/components/docker-tab'
 import { LogsTab } from '@/components/logs-tab'
 import { DeployTab } from '@/components/deploy-tab'
+import { AlertsPanel } from '@/components/alerts-panel'
+import { SettingsDialog } from '@/components/settings-dialog'
 import { ServerDialog } from '@/components/server-dialog'
 import { ConfirmDialog, ContextMenu, PromptDialog, type MenuItem } from '@/components/dialog'
 import { api, errText } from '@/lib/api'
 import { generateId } from '@/lib/utils'
-import type { ConnState, Library, ServerPublic } from '@/electron/types'
+import type { AlertEvent, AlertKind, AppSettings, ConnState, Library, ServerPublic } from '@/electron/types'
 
-const version = '0.5.0'
+const version = '0.6.0'
 
 type Tool = 'overview' | 'files' | 'processes' | 'services' | 'docker' | 'logs' | 'deploy'
 type Tab = { id: string; kind: 'home' | 'terminal' | Tool; serverId?: string; container?: string }
@@ -32,6 +34,8 @@ type Dialog =
   | { kind: 'group'; rename?: string }
   | { kind: 'delete-server'; server: ServerPublic }
   | { kind: 'delete-group'; group: string }
+  | { kind: 'alerts' }
+  | { kind: 'settings' }
   | null
 
 export default function App() {
@@ -42,6 +46,11 @@ export default function App() {
   const [dialog, setDialog] = useState<Dialog>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null)
 
+  const [alertList, setAlertList] = useState<AlertEvent[]>([])
+  const [alerting, setAlerting] = useState<Record<string, AlertKind[]>>({})
+  const [settings, setSettings] = useState<AppSettings | null>(null)
+  const unread = alertList.filter(a => !a.read).length
+
   const byId = useMemo(() => new Map(lib.servers.map(s => [s.id, s])), [lib.servers])
   const refresh = useCallback(async () => setLib(await api().library.get()), [])
 
@@ -49,7 +58,16 @@ export default function App() {
     if (!window.electronAPI) return
     void refresh()
     void api().conn.states().then(setStates)
-    return api().conn.onState(e => setStates(s => ({ ...s, [e.id]: { status: e.status, error: e.error, hostKeyChanged: e.hostKeyChanged } })))
+    void api().alerts.list().then(setAlertList)
+    void api().alerts.active().then(setAlerting)
+    void api().settings.get().then(setSettings)
+    const offState = api().conn.onState(e => setStates(s => ({ ...s, [e.id]: { status: e.status, error: e.error, hostKeyChanged: e.hostKeyChanged } })))
+    const offEvents = api().alerts.onEvents(events => {
+      setAlertList(l => [...events.map(e => ({ ...e, read: false })), ...l].slice(0, 300))
+      for (const e of events.slice(0, 3)) (e.severity === 'critical' ? toast.error : e.severity === 'warning' ? toast.warning : toast.success)(e.title, { description: e.message })
+    })
+    const offActive = api().alerts.onActive(e => setAlerting(a => ({ ...a, [e.serverId]: e.kinds })))
+    return () => { offState(); offEvents(); offActive() }
   }, [refresh])
 
   const activate = (id: string) => setActiveId(id)
@@ -156,7 +174,7 @@ export default function App() {
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <Sidebar
-          servers={lib.servers} groups={lib.groups} states={states} activeServerId={activeServerId}
+          servers={lib.servers} groups={lib.groups} states={states} alerting={alerting} activeServerId={activeServerId}
           onOpen={openOverview} onTerminal={openTerminal}
           onAddServer={group => setDialog({ kind: 'server', group })}
           onAddGroup={() => setDialog({ kind: 'group' })}
@@ -218,6 +236,11 @@ export default function App() {
       </div>
 
       <div className="flex h-7 shrink-0 items-center gap-3 overflow-hidden border-t border-border bg-card px-3 text-xs text-muted-foreground">
+        <button onClick={() => setDialog({ kind: 'settings' })} className="flex h-5 items-center gap-1.5 rounded px-2 transition-colors hover:bg-accent/20 hover:text-foreground"><Settings2 className="h-3.5 w-3.5" />Settings</button>
+        <button onClick={() => { setDialog({ kind: 'alerts' }); void api().alerts.markRead(); setAlertList(l => l.map(a => ({ ...a, read: true }))) }}
+          className={`flex h-5 items-center gap-1.5 rounded px-2 transition-colors hover:bg-accent/20 hover:text-foreground ${unread ? 'text-[var(--term-yellow)]' : ''}`}>
+          <Bell className="h-3.5 w-3.5" />Alerts{unread > 0 && <span className="rounded-full bg-[var(--term-yellow)] px-1.5 text-[10px] font-semibold leading-4 text-black">{unread}</span>}
+        </button>
         <span className="flex items-center gap-1.5"><span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-primary' : 'bg-muted-foreground/40'}`} />{online} connected</span>
         <span className="flex-1" />
         <span className="hidden sm:inline text-muted-foreground/50">Ctrl+T new terminal · Ctrl+W close tab</span>
@@ -226,6 +249,12 @@ export default function App() {
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
 
+      {dialog?.kind === 'alerts' && (
+        <AlertsPanel alerts={alertList} onClose={() => setDialog(null)} onSettings={() => setDialog({ kind: 'settings' })}
+          onOpenServer={id => { const s = byId.get(id); if (s) openOverview(s) }}
+          onClear={() => void api().alerts.clear().then(() => setAlertList([]))} />
+      )}
+      {dialog?.kind === 'settings' && settings && <SettingsDialog initial={settings} onSaved={setSettings} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'server' && (
         <ServerDialog server={dialog.server} groups={lib.groups} defaultGroup={dialog.group}
           onSaved={(s, created) => { void refresh().then(() => { if (created) openOverview(s) }) }}

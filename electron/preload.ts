@@ -70,6 +70,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onData: (cb: (e: unknown) => void) => on('stream:data', cb),
     onEnd: (cb: (e: unknown) => void) => on('stream:end', cb),
   },
+  settings: {
+    get: () => ipcRenderer.invoke('settings:get'),
+    set: (patch: unknown) => ipcRenderer.invoke('settings:set', patch),
+  },
+  alerts: {
+    list: () => ipcRenderer.invoke('alerts:list'),
+    markRead: () => ipcRenderer.invoke('alerts:mark-read'),
+    clear: () => ipcRenderer.invoke('alerts:clear'),
+    test: () => ipcRenderer.invoke('alerts:test'),
+    active: () => ipcRenderer.invoke('alerts:active'),
+    onEvents: (cb: (e: unknown) => void) => on('alerts:events', cb),
+    onActive: (cb: (e: unknown) => void) => on('alerts:active', cb),
+  },
   deploy: {
     list: (serverId: string) => ipcRenderer.invoke('deploy:list', serverId),
     save: (def: unknown) => ipcRenderer.invoke('deploy:save', def),

@@ -1,15 +1,16 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, FolderPlus, Plus, Search, Server, TerminalSquare } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, FolderPlus, Plus, Search, Server, TerminalSquare } from 'lucide-react'
 import { StatusDot } from '@/components/status-dot'
-import type { ConnState, ServerPublic } from '@/electron/types'
+import type { AlertKind, ConnState, ServerPublic } from '@/electron/types'
 import type { MenuItem } from '@/components/dialog'
 
 export interface SidebarProps {
   servers: ServerPublic[]
   groups: string[]
   states: Record<string, ConnState>
+  alerting: Record<string, AlertKind[]>
   activeServerId: string | null
   onOpen: (s: ServerPublic) => void
   onTerminal: (s: ServerPublic) => void
@@ -57,6 +58,7 @@ export function Sidebar(p: SidebarProps) {
           <div className="truncate leading-tight">{s.name}</div>
           <div className="truncate text-[11px] leading-tight text-muted-foreground">{s.user}@{s.host}</div>
         </div>
+        {(p.alerting[s.id]?.length ?? 0) > 0 && <span title={`Alert: ${p.alerting[s.id].join(', ')}`} className="shrink-0 text-[var(--term-yellow)] group-hover:hidden"><AlertTriangle className="h-3.5 w-3.5" /></span>}
         <button title="New terminal" onClick={e => { e.stopPropagation(); p.onTerminal(s) }} onDoubleClick={e => e.stopPropagation()}
           className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-background/60 hover:text-primary group-hover:flex">
           <TerminalSquare className="h-3.5 w-3.5" />

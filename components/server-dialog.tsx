@@ -31,13 +31,14 @@ export function ServerDialog({ server, groups, defaultGroup = '', onSaved, onClo
   const [privateKey, setPrivateKey] = useState('')
   const [passphrase, setPassphrase] = useState('')
   const [note, setNote] = useState(server?.note ?? '')
+  const [watch, setWatch] = useState(server?.watch ?? true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
   const submit = async () => {
     setError('')
     const input: ServerInput = {
-      id: server?.id, name, host, port: Number(port), user, auth, group, note,
+      id: server?.id, name, host, port: Number(port), user, auth, group, note, watch,
       keyPath: pasteKey ? '' : keyPath,
       // An untouched secret field keeps what is saved; a typed value replaces it.
       password: password !== '' ? password : undefined,
@@ -152,6 +153,8 @@ export function ServerDialog({ server, groups, defaultGroup = '', onSaved, onClo
           <label className="label">Note</label>
           <input className="field" value={note} onChange={e => setNote(e.target.value)} placeholder="What this server is for" />
         </div>
+
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={watch} onChange={e => setWatch(e.target.checked)} />Watch this server and alert me when something is wrong</label>
 
         {error && <p className="rounded-md bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p>}
 

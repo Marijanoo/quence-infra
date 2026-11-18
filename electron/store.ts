@@ -21,6 +21,7 @@ export interface StoredServer {
   group: string
   note: string
   keyPath: string
+  watch?: boolean
   password: string
   passphrase: string
   privateKey: string
@@ -70,7 +71,7 @@ function save() {
 
 const pub = (s: StoredServer): ServerPublic => ({
   id: s.id, name: s.name, host: s.host, port: s.port, user: s.user, auth: s.auth, group: s.group, note: s.note,
-  keyPath: s.keyPath, hasPassword: !!s.password, hasPassphrase: !!s.passphrase, hasPrivateKey: !!s.privateKey,
+  keyPath: s.keyPath, watch: s.watch !== false, hasPassword: !!s.password, hasPassphrase: !!s.passphrase, hasPrivateKey: !!s.privateKey,
 })
 
 export function library(): Library {
@@ -109,6 +110,7 @@ export function saveServer(input: ServerInput): ServerPublic {
     group: input.group.trim(),
     note: input.note.trim(),
     keyPath: input.auth === 'key' ? (input.keyPath ?? '').trim() : '',
+    watch: input.watch ?? existing?.watch ?? true,
     password: input.auth === 'password' ? secret(input.password, existing?.password) : '',
     passphrase: input.auth === 'key' ? secret(input.passphrase, existing?.passphrase) : '',
     privateKey: input.auth === 'key' ? secret(input.privateKey, existing?.privateKey) : '',

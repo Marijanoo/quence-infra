@@ -2,7 +2,7 @@
 
 Infrastructure control center, a desktop app (Electron) in the Quence family: manage your servers, open SSH terminals and watch live CPU, memory, disk and network figures from one window. Nothing is installed on the servers: everything runs over SSH.
 
-## What it does (v0.5)
+## What it does (v0.6)
 
 - **Servers:** add servers with a password, a private key (file or pasted, with passphrase) or your SSH agent; organise them into groups; search; duplicate; move between groups.
 - **Terminals:** integrated SSH terminals (xterm.js), several per server, kept alive while you switch tabs. Ctrl+T opens another one, Ctrl+W closes the tab.
@@ -19,7 +19,7 @@ Infrastructure control center, a desktop app (Electron) in the Quence family: ma
 
 - **Deployments:** save shell scripts per server (with a working folder), run them with the output streamed live, cancel a run, and keep a history of every run with its full output and exit code. Examples included for git pull, Docker Compose updates and backups.
 
-Planned next: notifications.
+- **Alerts and notifications:** servers marked “watch” (the default) are checked in the background. You are told, once, when a server can’t be reached, CPU stays high, memory runs low, a disk fills up or a systemd service fails, and again when it recovers. Alerts show as desktop notifications, in the Alerts list, as a warning icon on the server, and optionally go to a Discord/Slack-style webhook. With “keep running in the tray” on (the default), closing the window keeps watching; quit from the tray icon. Alerts only work while the app is running.
 
 ## Development
 
