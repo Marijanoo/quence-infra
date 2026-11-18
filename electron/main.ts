@@ -17,7 +17,7 @@ import { AlertEngine } from './alerts'
 import { SettingsStore } from './settings'
 import { Watcher } from './watcher'
 import { dockerBin, sh, assertName, streamCommand } from './commands'
-import type { AlertEvent, AppSettings, ConnEvent, ContainerAction, ServerInput, ServiceAction, StreamRequest } from './types'
+import type { AlertEvent, AppSettings, FleetSample, ConnEvent, ContainerAction, ServerInput, ServiceAction, StreamRequest } from './types'
 
 // A dropped connection can surface as an EPIPE on a socket that is already closing.
 process.on('uncaughtException', (err: any) => {
@@ -84,6 +84,7 @@ let settingsStore: SettingsStore
 let watcher: Watcher
 let tray: Tray | null = null
 let quitting = false
+const fleet = new Map<string, FleetSample>()
 const engine = new AlertEngine(() => settingsStore.get().alerts)
 
 async function postWebhook(url: string, text: string): Promise<void> {
@@ -374,6 +375,7 @@ function registerIpc() {
     watcher.start()
     return s
   })
+  ipcMain.handle('fleet:get', () => Object.fromEntries(fleet))
   ipcMain.handle('alerts:list', () => settingsStore.alerts())
   ipcMain.handle('alerts:mark-read', () => settingsStore.markRead())
   ipcMain.handle('alerts:clear', () => settingsStore.clearAlerts())
@@ -402,6 +404,13 @@ app.on('ready', () => {
     () => settingsStore.get().alerts.enabled,
     notify,
     (serverId, kinds) => send('alerts:active', { serverId, kinds }),
+    sample => {
+      // keep the last good figures when a check fails, so a card doesn't go blank
+      const prev = fleet.get(sample.serverId)
+      const merged = sample.reachable ? sample : { ...prev, ...sample, cpu: prev?.cpu, memPct: prev?.memPct, diskPct: prev?.diskPct }
+      fleet.set(sample.serverId, merged)
+      send('fleet:sample', merged)
+    },
   )
   registerIpc()
   syncTray()

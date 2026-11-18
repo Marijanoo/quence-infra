@@ -22,7 +22,7 @@ import { api, errText } from '@/lib/api'
 import { generateId } from '@/lib/utils'
 import type { AlertEvent, AlertKind, AppSettings, ConnState, Library, ServerPublic } from '@/electron/types'
 
-const version = '0.6.0'
+const version = '0.7.0'
 
 type Tool = 'overview' | 'files' | 'processes' | 'services' | 'docker' | 'logs' | 'deploy'
 type Tab = { id: string; kind: 'home' | 'terminal' | Tool; serverId?: string; container?: string }
@@ -227,7 +227,7 @@ export default function App() {
               if (t.kind === 'processes') return s ? <div key={t.id} className="absolute inset-0"><ProcessesTab serverId={s.id} /></div> : null
               if (t.kind === 'services') return s ? <div key={t.id} className="absolute inset-0"><ServicesTab serverId={s.id} /></div> : null
               if (t.kind === 'home') {
-                return <div key={t.id} className="absolute inset-0"><Home servers={lib.servers} states={states} onOpen={openOverview} onTerminal={openTerminal} onAdd={() => setDialog({ kind: 'server' })} /></div>
+                return <div key={t.id} className="absolute inset-0"><Home servers={lib.servers} states={states} alerting={alerting} onOpen={openOverview} onTerminal={openTerminal} onAdd={() => setDialog({ kind: 'server' })} /></div>
               }
               return s ? <div key={t.id} className="absolute inset-0"><Overview server={s} state={states[s.id] ?? { status: 'offline' }} onTerminal={() => openTerminal(s)} onTool={k => openTool(s, k)} /></div> : null
             })}

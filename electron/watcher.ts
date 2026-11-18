@@ -1,7 +1,7 @@
 import type { Connections } from './ssh'
 import { SNAPSHOT_COMMAND, parseSnapshot, toSample, UnsupportedServerError, type Snapshot } from './monitor-parse'
 import type { AlertEngine } from './alerts'
-import type { AlertEvent, AlertKind, Observation } from './types'
+import type { AlertEvent, AlertKind, FleetSample, Observation } from './types'
 
 // Checks the watched servers in the background, every minute or so, and feeds what it sees to the
 // alert engine. It shares each server's SSH connection with everything else, so a server you are
@@ -30,6 +30,7 @@ export class Watcher {
     private enabled: () => boolean,
     private onEvents: (events: AlertEvent[]) => void,
     private onActive: (serverId: string, kinds: AlertKind[]) => void,
+    private onSample: (sample: FleetSample) => void = () => {},
   ) {}
 
   start() {
@@ -85,6 +86,8 @@ export class Watcher {
       this.prev.delete(t.id)
       obs = { t: now, reachable: false, error: err instanceof Error ? err.message : String(err) }
     }
+    const root = obs.disks?.find(d => d.mount === '/') ?? obs.disks?.[0]
+    this.onSample({ serverId: t.id, t: now, reachable: obs.reachable, cpu: obs.cpu, memPct: obs.memPct, diskPct: root?.pct, failed: obs.failed?.length })
     const events = this.engine.observe(t.id, t.name, obs)
     this.onActive(t.id, this.engine.active(t.id))
     if (events.length) this.onEvents(events)

@@ -74,6 +74,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     get: () => ipcRenderer.invoke('settings:get'),
     set: (patch: unknown) => ipcRenderer.invoke('settings:set', patch),
   },
+  fleet: {
+    get: () => ipcRenderer.invoke('fleet:get'),
+    onSample: (cb: (e: unknown) => void) => on('fleet:sample', cb),
+  },
   alerts: {
     list: () => ipcRenderer.invoke('alerts:list'),
     markRead: () => ipcRenderer.invoke('alerts:mark-read'),

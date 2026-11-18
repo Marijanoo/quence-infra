@@ -268,3 +268,15 @@ export interface Observation {
   disks?: { mount: string; pct: number }[]
   failed?: string[]
 }
+
+// ── Fleet dashboard ──────────────────────────────────────────────────────────
+
+export interface FleetSample {
+  serverId: string
+  t: number
+  reachable: boolean
+  cpu?: number
+  memPct?: number
+  diskPct?: number
+  failed?: number
+}

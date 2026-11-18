@@ -2,8 +2,9 @@
 
 Infrastructure control center, a desktop app (Electron) in the Quence family: manage your servers, open SSH terminals and watch live CPU, memory, disk and network figures from one window. Nothing is installed on the servers: everything runs over SSH.
 
-## What it does (v0.6)
+## What it does (v0.7)
 
+- **Fleet dashboard:** the Home tab shows every server as a live card with CPU, memory and disk gauges and any active alert. Customize what is shown (CPU, memory, disk), compact cards, and sort by name or by the busiest, fullest or most memory-hungry server.
 - **Servers:** add servers with a password, a private key (file or pasted, with passphrase) or your SSH agent; organise them into groups; search; duplicate; move between groups.
 - **Terminals:** integrated SSH terminals (xterm.js), several per server, kept alive while you switch tabs. Ctrl+T opens another one, Ctrl+W closes the tab.
 - **Live monitoring:** CPU (total and per core), load, memory and swap, disks, network traffic and the busiest processes, refreshed every 2 seconds, with the last 5 minutes charted. Linux servers (reads `/proc`).

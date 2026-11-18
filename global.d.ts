@@ -1,4 +1,4 @@
-import type { AlertEvent, AlertKind, AppSettings, DeploymentDef, DeploymentList, DeploymentRun, RunLog, ContainerAction, DockerSnapshot, DockerStat, StreamData, StreamEnd, StreamRequest, FileList, ProcessRow, ServiceAction, ServiceRow, TransferProgress, ConnEvent, ConnState, Library, MonitorInfo, MonitorSample, MonitorStart, ServerInput, ServerPublic } from '@/electron/types'
+import type { FleetSample, AlertEvent, AlertKind, AppSettings, DeploymentDef, DeploymentList, DeploymentRun, RunLog, ContainerAction, DockerSnapshot, DockerStat, StreamData, StreamEnd, StreamRequest, FileList, ProcessRow, ServiceAction, ServiceRow, TransferProgress, ConnEvent, ConnState, Library, MonitorInfo, MonitorSample, MonitorStart, ServerInput, ServerPublic } from '@/electron/types'
 
 export {}
 
@@ -71,6 +71,10 @@ declare global {
       settings: {
         get: () => Promise<AppSettings>
         set: (patch: Partial<AppSettings>) => Promise<AppSettings>
+      }
+      fleet: {
+        get: () => Promise<Record<string, FleetSample>>
+        onSample: (cb: (e: FleetSample) => void) => () => void
       }
       alerts: {
         list: () => Promise<AlertEvent[]>
