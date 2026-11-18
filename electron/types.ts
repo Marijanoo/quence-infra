@@ -100,3 +100,54 @@ export interface MonitorError {
   id: string
   message: string
 }
+
+// ── Files ────────────────────────────────────────────────────────────────────
+
+export interface FileEntry {
+  name: string
+  dir: boolean
+  link: boolean
+  size: number
+  mtime: number   // seconds
+  mode: number
+}
+
+export interface FileList {
+  path: string
+  entries: FileEntry[]
+}
+
+export interface TransferProgress {
+  id: string
+  serverId: string
+  kind: 'upload' | 'download'
+  name: string
+  done: number
+  total: number
+  finished?: boolean
+  error?: string
+}
+
+// ── Processes and services ───────────────────────────────────────────────────
+
+export interface ProcessRow {
+  pid: number
+  ppid: number
+  user: string
+  cpu: number
+  mem: number
+  rss: number     // bytes
+  time: string
+  state: string
+  command: string
+}
+
+export interface ServiceRow {
+  name: string
+  load: string
+  active: string
+  sub: string
+  description: string
+}
+
+export type ServiceAction = 'start' | 'stop' | 'restart' | 'enable' | 'disable'

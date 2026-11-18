@@ -2,14 +2,18 @@
 
 Infrastructure control center, a desktop app (Electron) in the Quence family: manage your servers, open SSH terminals and watch live CPU, memory, disk and network figures from one window. Nothing is installed on the servers: everything runs over SSH.
 
-## What it does (v0.1)
+## What it does (v0.2)
 
 - **Servers:** add servers with a password, a private key (file or pasted, with passphrase) or your SSH agent; organise them into groups; search; duplicate; move between groups.
 - **Terminals:** integrated SSH terminals (xterm.js), several per server, kept alive while you switch tabs. Ctrl+T opens another one, Ctrl+W closes the tab.
 - **Live monitoring:** CPU (total and per core), load, memory and swap, disks, network traffic and the busiest processes, refreshed every 2 seconds, with the last 5 minutes charted. Linux servers (reads `/proc`).
 - **Safety:** host keys are remembered on first use and a changed key blocks the connection; passwords, passphrases and pasted keys are encrypted with the system keychain (Electron safeStorage) and never go back to the UI.
 
-Planned next: file manager (SFTP), process and service managers, Docker and Compose, log viewer, deployments, notifications.
+- **Files (SFTP):** browse, open and edit text files (Ctrl+S), rename, delete, new folder, upload and download files or whole folders, drag files from your computer to upload.
+- **Processes:** every process with CPU, memory and uptime, sort and filter, stop or force-kill from the context menu.
+- **Services (systemd):** list, filter by running, failed or inactive, start, stop and restart (as root, or through `sudo` without a password).
+
+Planned next: Docker and Compose, log viewer, deployments, notifications.
 
 ## Development
 

@@ -14,8 +14,8 @@ function theme() {
   return {
     background: css('--term-bg', '#0f0f0f'),
     foreground: css('--term-fg', '#e4e4e7'),
-    cursor: css('--term-cursor', '#85F08F'),
-    selectionBackground: '#85F08F40',
+    cursor: css('--term-cursor', '#4FD6E8'),
+    selectionBackground: '#4FD6E840',
     red: css('--term-red', '#f87171'),
     green: css('--term-green', '#85F08F'),
     yellow: css('--term-yellow', '#facc15'),

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 const on = <T>(channel: string, cb: (payload: T) => void) => {
   const h = (_e: Electron.IpcRendererEvent, payload: T) => cb(payload)
@@ -37,6 +37,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close:  (sessionId: string) => ipcRenderer.send('term:close', { sessionId }),
     onData:  (cb: (e: { sessionId: string; data: string }) => void) => on('term:data', cb),
     onClose: (cb: (e: { sessionId: string }) => void) => on('term:closed', cb),
+  },
+  files: {
+    home:   (id: string) => ipcRenderer.invoke('files:home', id),
+    list:   (id: string, dir: string) => ipcRenderer.invoke('files:list', id, dir),
+    read:   (id: string, file: string) => ipcRenderer.invoke('files:read', id, file),
+    write:  (id: string, file: string, content: string) => ipcRenderer.invoke('files:write', id, file, content),
+    mkdir:  (id: string, dir: string) => ipcRenderer.invoke('files:mkdir', id, dir),
+    rename: (id: string, from: string, to: string) => ipcRenderer.invoke('files:rename', id, from, to),
+    remove: (id: string, target: string, isDir: boolean) => ipcRenderer.invoke('files:remove', id, target, isDir),
+    upload: (id: string, remoteDir: string, locals?: string[]) => ipcRenderer.invoke('files:upload', id, remoteDir, locals),
+    uploadFolder: (id: string, remoteDir: string) => ipcRenderer.invoke('files:upload-folder', id, remoteDir),
+    download: (id: string, items: { path: string; dir: boolean }[]) => ipcRenderer.invoke('files:download', id, items),
+    reveal: (p: string) => ipcRenderer.invoke('files:reveal', p),
+    pathOf: (f: File) => webUtils.getPathForFile(f),
+    onProgress: (cb: (e: unknown) => void) => on('files:progress', cb),
+  },
+  system: {
+    processes: (id: string) => ipcRenderer.invoke('system:processes', id),
+    kill: (id: string, pid: number, force: boolean) => ipcRenderer.invoke('system:kill', id, pid, force),
+    services: (id: string) => ipcRenderer.invoke('system:services', id),
+    serviceAction: (id: string, name: string, action: string) => ipcRenderer.invoke('system:service-action', id, name, action),
   },
   monitor: {
     start:   (id: string) => ipcRenderer.invoke('monitor:start', id),

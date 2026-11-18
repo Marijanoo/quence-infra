@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, Cpu, HardDrive, MemoryStick, PlugZap, RefreshCw, TerminalSquare, Unplug } from 'lucide-react'
+import { ArrowDown, ArrowUp, Cog, Cpu, FolderOpen, HardDrive, ListTree, MemoryStick, PlugZap, RefreshCw, TerminalSquare, Unplug } from 'lucide-react'
 import { AreaChart, Bar } from '@/components/charts'
 import { STATUS_LABEL, StatusDot } from '@/components/status-dot'
 import { api } from '@/lib/api'
@@ -21,7 +21,7 @@ function Stat({ icon, title, value, sub, children }: { icon: React.ReactNode; ti
   )
 }
 
-export function Overview({ server, state, onTerminal }: { server: ServerPublic; state: ConnState; onTerminal: () => void }) {
+export function Overview({ server, state, onTerminal, onTool }: { server: ServerPublic; state: ConnState; onTerminal: () => void; onTool: (k: 'files' | 'processes' | 'services') => void }) {
   const [info, setInfo] = useState<MonitorInfo | null>(null)
   const [history, setHistory] = useState<MonitorSample[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -83,6 +83,9 @@ export function Overview({ server, state, onTerminal }: { server: ServerPublic; 
           </div>
           <div className="flex gap-2">
             <button className="btn btn-primary" onClick={onTerminal}><TerminalSquare className="h-3.5 w-3.5" />Terminal</button>
+            <button className="btn" onClick={() => onTool('files')}><FolderOpen className="h-3.5 w-3.5" />Files</button>
+            <button className="btn" onClick={() => onTool('processes')}><ListTree className="h-3.5 w-3.5" />Processes</button>
+            <button className="btn" onClick={() => onTool('services')}><Cog className="h-3.5 w-3.5" />Services</button>
             {state.status === 'online'
               ? <button className="btn" onClick={() => void api().conn.disconnect(id)}><Unplug className="h-3.5 w-3.5" />Disconnect</button>
               : <button className="btn" onClick={() => void reconnect()} disabled={state.status === 'connecting'}><PlugZap className="h-3.5 w-3.5" />Connect</button>}

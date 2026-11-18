@@ -10,25 +10,25 @@
   --card-foreground: oklch(0.97 0 0);
   --popover: oklch(0.34 0.01 282);
   --popover-foreground: oklch(0.97 0 0);
-  --primary: #85F08F;
-  --primary-foreground: oklch(0.18 0.05 145);
+  --primary: #4FD6E8;
+  --primary-foreground: oklch(0.2 0.05 215);
   --secondary: oklch(0.38 0.01 282);
   --secondary-foreground: oklch(0.97 0 0);
   --muted: oklch(0.36 0.01 282);
   --muted-foreground: oklch(0.85 0 0);
-  --accent: #85F08F;
-  --accent-foreground: oklch(0.18 0.05 145);
+  --accent: #4FD6E8;
+  --accent-foreground: oklch(0.2 0.05 215);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.97 0 0);
   --border: oklch(0.42 0.01 282);
   --input: oklch(0.36 0.01 282);
-  --ring: #85F08F;
+  --ring: #4FD6E8;
   --radius: 0.5rem;
 
   /* Terminal colors */
   --term-bg:      #0f0f0f;
   --term-fg:      #e4e4e7;
-  --term-cursor:  #85F08F;
+  --term-cursor:  #4FD6E8;
   --term-red:     #f87171;
   --term-green:   #85F08F;
   --term-yellow:  #facc15;
@@ -73,7 +73,7 @@
     @apply bg-background text-foreground;
   }
   ::selection {
-    background-color: #85F08F40;
+    background-color: #4FD6E840;
     color: inherit;
   }
   body {

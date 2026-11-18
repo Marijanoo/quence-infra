@@ -1,22 +1,28 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Home as HomeIcon, Activity, TerminalSquare, X } from 'lucide-react'
+import { Home as HomeIcon, Activity, Cog, FolderOpen, ListTree, TerminalSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { TitleBar } from '@/components/title-bar'
 import { Sidebar } from '@/components/sidebar'
 import { Home } from '@/components/home'
 import { Overview } from '@/components/overview'
 import { TerminalTab } from '@/components/terminal-tab'
+import { FilesTab } from '@/components/files-tab'
+import { ProcessesTab } from '@/components/processes-tab'
+import { ServicesTab } from '@/components/services-tab'
 import { ServerDialog } from '@/components/server-dialog'
 import { ConfirmDialog, ContextMenu, PromptDialog, type MenuItem } from '@/components/dialog'
 import { api, errText } from '@/lib/api'
 import { generateId } from '@/lib/utils'
 import type { ConnState, Library, ServerPublic } from '@/electron/types'
 
-const version = '0.1.0'
+const version = '0.2.0'
 
-type Tab = { id: string; kind: 'home' | 'overview' | 'terminal'; serverId?: string }
+type Tool = 'overview' | 'files' | 'processes' | 'services'
+type Tab = { id: string; kind: 'home' | 'terminal' | Tool; serverId?: string }
+
+const TOOL_LABEL: Record<Tool, string> = { overview: '', files: 'Files', processes: 'Processes', services: 'Services' }
 
 type Dialog =
   | { kind: 'server'; server?: ServerPublic; group?: string }
@@ -45,10 +51,12 @@ export default function App() {
 
   const activate = (id: string) => setActiveId(id)
 
-  const openOverview = useCallback((s: ServerPublic) => {
-    setTabs(t => t.some(x => x.kind === 'overview' && x.serverId === s.id) ? t : [...t, { id: `ov-${s.id}`, kind: 'overview', serverId: s.id }])
-    setActiveId(`ov-${s.id}`)
+  const openTool = useCallback((s: ServerPublic, kind: Tool) => {
+    const id = `${kind}-${s.id}`
+    setTabs(t => t.some(x => x.id === id) ? t : [...t, { id, kind, serverId: s.id }])
+    setActiveId(id)
   }, [])
+  const openOverview = useCallback((s: ServerPublic) => openTool(s, 'overview'), [openTool])
 
   const openTerminal = useCallback((s: ServerPublic) => {
     const id = generateId()
@@ -102,6 +110,9 @@ export default function App() {
       x, y, items: [
         { label: 'Overview', onClick: () => openOverview(s) },
         { label: 'New terminal', onClick: () => openTerminal(s) },
+        { label: 'Files', onClick: () => openTool(s, 'files') },
+        { label: 'Processes', onClick: () => openTool(s, 'processes') },
+        { label: 'Services', onClick: () => openTool(s, 'services') },
         st === 'online' ? { label: 'Disconnect', onClick: () => void api().conn.disconnect(s.id) }
           : { label: 'Connect', onClick: () => void api().conn.connect(s.id).catch(() => { /* shown on the overview */ }), disabled: st === 'connecting' },
         { label: '', onClick: () => {}, separator: true },
@@ -151,11 +162,11 @@ export default function App() {
             {tabs.map(t => {
               const s = t.serverId ? byId.get(t.serverId) : undefined
               const active = t.id === activeTab.id
-              const label = t.kind === 'home' ? 'Home' : `${s?.name ?? '…'}${t.kind === 'terminal' ? terminalNo(t) : ''}`
+              const label = t.kind === 'home' ? 'Home' : `${s?.name ?? '…'}${t.kind === 'terminal' ? terminalNo(t) : t.kind !== 'overview' ? ` · ${TOOL_LABEL[t.kind]}` : ''}`
               return (
                 <div key={t.id} onClick={() => activate(t.id)} onAuxClick={e => { if (e.button === 1) closeTab(t.id) }}
                   className={`group flex shrink-0 cursor-pointer items-center gap-2 border-r border-border px-3 text-sm transition-colors ${active ? 'bg-background text-foreground shadow-[inset_0_-2px_0_var(--primary)]' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'}`}>
-                  {t.kind === 'home' ? <HomeIcon className="h-3.5 w-3.5" /> : t.kind === 'overview' ? <Activity className="h-3.5 w-3.5" /> : <TerminalSquare className="h-3.5 w-3.5" />}
+                  {t.kind === 'home' ? <HomeIcon className="h-3.5 w-3.5" /> : t.kind === 'overview' ? <Activity className="h-3.5 w-3.5" /> : t.kind === 'files' ? <FolderOpen className="h-3.5 w-3.5" /> : t.kind === 'processes' ? <ListTree className="h-3.5 w-3.5" /> : t.kind === 'services' ? <Cog className="h-3.5 w-3.5" /> : <TerminalSquare className="h-3.5 w-3.5" />}
                   <span className="max-w-40 truncate">{label}</span>
                   {t.kind !== 'home' && (
                     <button onClick={e => { e.stopPropagation(); closeTab(t.id) }} aria-label="Close tab"
@@ -175,11 +186,17 @@ export default function App() {
               if (t.kind === 'terminal') {
                 return s ? <div key={t.id} className="absolute inset-0" style={{ display: active ? 'block' : 'none' }}><TerminalTab sessionId={t.id} serverId={s.id} active={active} /></div> : null
               }
+              // Files keep their place (and any running transfers) while in the background
+              if (t.kind === 'files') {
+                return s ? <div key={t.id} className="absolute inset-0" style={{ display: active ? 'block' : 'none' }}><FilesTab serverId={s.id} /></div> : null
+              }
               if (!active) return null
+              if (t.kind === 'processes') return s ? <div key={t.id} className="absolute inset-0"><ProcessesTab serverId={s.id} /></div> : null
+              if (t.kind === 'services') return s ? <div key={t.id} className="absolute inset-0"><ServicesTab serverId={s.id} /></div> : null
               if (t.kind === 'home') {
                 return <div key={t.id} className="absolute inset-0"><Home servers={lib.servers} states={states} onOpen={openOverview} onTerminal={openTerminal} onAdd={() => setDialog({ kind: 'server' })} /></div>
               }
-              return s ? <div key={t.id} className="absolute inset-0"><Overview server={s} state={states[s.id] ?? { status: 'offline' }} onTerminal={() => openTerminal(s)} /></div> : null
+              return s ? <div key={t.id} className="absolute inset-0"><Overview server={s} state={states[s.id] ?? { status: 'offline' }} onTerminal={() => openTerminal(s)} onTool={k => openTool(s, k)} /></div> : null
             })}
           </div>
         </div>

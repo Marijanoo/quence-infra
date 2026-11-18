@@ -1,13 +1,16 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
+import { randomUUID } from 'crypto'
 import serve from 'electron-serve'
 import * as store from './store'
 import { checkHostKey, forgetHostKey } from './known-hosts'
 import { Connections, hostIdOf } from './ssh'
 import { Monitors } from './monitor'
 import { Shells } from './shells'
-import type { ConnEvent, ServerInput } from './types'
+import { Sftp } from './sftp'
+import { System } from './system'
+import type { ConnEvent, ServerInput, ServiceAction } from './types'
 
 // A dropped connection can surface as an EPIPE on a socket that is already closing.
 process.on('uncaughtException', (err: any) => {
@@ -47,7 +50,10 @@ const send = (channel: string, payload: unknown) => {
 const conns = new Connections({
   getServer: id => store.getServer(id),
   checkHostKey,
-  onState: (id, state) => send('conn:state', { id, ...state } satisfies ConnEvent),
+  onState: (id, state) => {
+    if (state.status !== 'online') sftp.forget(id)
+    send('conn:state', { id, ...state } satisfies ConnEvent)
+  },
 })
 const monitors = new Monitors(
   conns,
@@ -59,6 +65,9 @@ const shells = new Shells(
   (sessionId, data) => send('term:data', { sessionId, data }),
   sessionId => send('term:closed', { sessionId }),
 )
+
+const sftp = new Sftp(conns)
+const system = new System(conns)
 
 const windowStatePath = () => path.join(app.getPath('userData'), 'window-state.json')
 
@@ -138,6 +147,28 @@ async function createWindow() {
   })
 }
 
+// Runs the transfers one after another and tells the window how each is going.
+async function runTransfers(
+  serverId: string,
+  kind: 'upload' | 'download',
+  items: { source: string; isDir: boolean }[],
+  run: (p: { source: string; isDir: boolean; progress: (name: string, done: number, total: number) => void }) => Promise<void>,
+) {
+  for (const item of items) {
+    const id = randomUUID()
+    const name = path.basename(item.source)
+    const emit = (patch: Record<string, unknown>) => send('files:progress', { id, serverId, kind, name, done: 0, total: 0, ...patch })
+    let last = 0
+    emit({})
+    try {
+      await run({ ...item, progress: (n, done, total) => { if (Date.now() - last > 120) { last = Date.now(); emit({ name: n, done, total }) } } })
+      emit({ finished: true })
+    } catch (err) {
+      emit({ finished: true, error: err instanceof Error ? err.message : String(err) })
+    }
+  }
+}
+
 function registerIpc() {
   ipcMain.on('window-minimize', e => BrowserWindow.fromWebContents(e.sender)?.minimize())
   ipcMain.on('window-maximize', e => {
@@ -197,6 +228,44 @@ function registerIpc() {
   ipcMain.on('term:write', (_e, a: { sessionId: string; data: string }) => shells.write(a.sessionId, a.data))
   ipcMain.on('term:resize', (_e, a: { sessionId: string; cols: number; rows: number }) => shells.resize(a.sessionId, a.cols, a.rows))
   ipcMain.on('term:close', (_e, a: { sessionId: string }) => shells.close(a.sessionId))
+
+  ipcMain.handle('files:home', (_e, id: string) => sftp.home(id))
+  ipcMain.handle('files:list', (_e, id: string, dir: string) => sftp.list(id, dir))
+  ipcMain.handle('files:read', (_e, id: string, file: string) => sftp.read(id, file))
+  ipcMain.handle('files:write', (_e, id: string, file: string, content: string) => sftp.write(id, file, content))
+  ipcMain.handle('files:mkdir', (_e, id: string, dir: string) => sftp.mkdir(id, dir))
+  ipcMain.handle('files:rename', (_e, id: string, from: string, to: string) => sftp.rename(id, from, to))
+  ipcMain.handle('files:remove', (_e, id: string, target: string, isDir: boolean) => sftp.remove(id, target, isDir))
+  // Uploads take local paths (chosen in a dialog, or dropped on the window); downloads ask for a folder.
+  ipcMain.handle('files:upload', async (_e, id: string, remoteDir: string, locals?: string[]) => {
+    let paths = locals
+    if (!paths?.length) {
+      const r = await dialog.showOpenDialog(mainWindow!, { title: 'Upload files', properties: ['openFile', 'multiSelections'] })
+      if (r.canceled) return 0
+      paths = r.filePaths
+    }
+    await runTransfers(id, 'upload', paths.map(p => ({ source: p, isDir: false })), p => sftp.upload(id, p.source, remoteDir, p.progress))
+    return paths.length
+  })
+  ipcMain.handle('files:upload-folder', async (_e, id: string, remoteDir: string) => {
+    const r = await dialog.showOpenDialog(mainWindow!, { title: 'Upload a folder', properties: ['openDirectory'] })
+    if (r.canceled) return 0
+    await runTransfers(id, 'upload', r.filePaths.map(p => ({ source: p, isDir: true })), p => sftp.upload(id, p.source, remoteDir, p.progress))
+    return r.filePaths.length
+  })
+  ipcMain.handle('files:download', async (_e, id: string, items: { path: string; dir: boolean }[]) => {
+    const r = await dialog.showOpenDialog(mainWindow!, { title: 'Download to…', properties: ['openDirectory', 'createDirectory'] })
+    if (r.canceled) return null
+    const dest = r.filePaths[0]
+    await runTransfers(id, 'download', items.map(i => ({ source: i.path, isDir: i.dir })), p => sftp.download(id, p.source, p.isDir, dest, p.progress))
+    return dest
+  })
+  ipcMain.handle('files:reveal', (_e, p: string) => { shell.showItemInFolder(p) })
+
+  ipcMain.handle('system:processes', (_e, id: string) => system.processes(id))
+  ipcMain.handle('system:kill', (_e, id: string, pid: number, force: boolean) => system.kill(id, pid, force))
+  ipcMain.handle('system:services', (_e, id: string) => system.services(id))
+  ipcMain.handle('system:service-action', (_e, id: string, name: string, action: ServiceAction) => system.serviceAction(id, name, action))
 
   ipcMain.handle('monitor:start', (_e, id: string) => monitors.start(id))
   ipcMain.on('monitor:stop', (_e, id: string) => monitors.stop(id))
