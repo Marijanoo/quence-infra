@@ -12,6 +12,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   close:    () => ipcRenderer.send('window-close'),
   zoomIn:   () => ipcRenderer.send('window-zoom-in'),
   zoomOut:  () => ipcRenderer.send('window-zoom-out'),
+  onUpdateAvailable:  (cb: () => void) => ipcRenderer.on('update-available', cb),
+  onUpdateProgress:   (cb: (percent: number) => void) => ipcRenderer.on('update-progress', (_e, percent) => cb(percent)),
+  onUpdateDownloaded: (cb: () => void) => ipcRenderer.on('update-downloaded', cb),
+  installUpdate: () => ipcRenderer.send('install-update'),
   library: {
     get:       () => ipcRenderer.invoke('library:get'),
     save:      (input: unknown) => ipcRenderer.invoke('library:save', input),

@@ -17,15 +17,19 @@ jobs:
             files: |
               dist/*.exe
               dist/*.blockmap
+              dist/latest.yml
           - os: macos-latest
             script: build:electron-mac
             files: |
               dist/*.dmg
               dist/*.zip
+              dist/*.blockmap
+              dist/latest-mac.yml
           - os: ubuntu-latest
             script: build:electron-linux
             files: |
               dist/*.AppImage
+              dist/latest-linux.yml
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write

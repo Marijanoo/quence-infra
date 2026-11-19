@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Home as HomeIcon, Activity, Bell, Boxes, Cog, Settings2, FolderOpen, ListTree, Rocket, ScrollText, TerminalSquare, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { TitleBar } from '@/components/title-bar'
+import { UpdateBar } from '@/components/update-bar'
 import { Sidebar } from '@/components/sidebar'
 import { Home } from '@/components/home'
 import { Overview } from '@/components/overview'
@@ -22,7 +23,7 @@ import { api, errText } from '@/lib/api'
 import { generateId } from '@/lib/utils'
 import type { AlertEvent, AlertKind, AppSettings, ConnState, Library, ServerPublic } from '@/electron/types'
 
-const version = '0.7.1'
+const version = '0.8.0'
 
 type Tool = 'overview' | 'files' | 'processes' | 'services' | 'docker' | 'logs' | 'deploy'
 type Tab = { id: string; kind: 'home' | 'terminal' | Tool; serverId?: string; container?: string }
@@ -44,6 +45,8 @@ export default function App() {
   const [tabs, setTabs] = useState<Tab[]>([{ id: 'home', kind: 'home' }])
   const [activeId, setActiveId] = useState('home')
   const [dialog, setDialog] = useState<Dialog>(null)
+  const [updateProgress, setUpdateProgress] = useState<number | null>(null)
+  const [updateDownloaded, setUpdateDownloaded] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null)
 
   const [alertList, setAlertList] = useState<AlertEvent[]>([])
@@ -53,6 +56,13 @@ export default function App() {
 
   const byId = useMemo(() => new Map(lib.servers.map(s => [s.id, s])), [lib.servers])
   const refresh = useCallback(async () => setLib(await api().library.get()), [])
+
+  useEffect(() => {
+    const u = window.electronAPI
+    u?.onUpdateAvailable?.(() => setUpdateProgress(0))
+    u?.onUpdateProgress?.(p => setUpdateProgress(p))
+    u?.onUpdateDownloaded?.(() => { setUpdateProgress(100); setUpdateDownloaded(true) })
+  }, [])
 
   useEffect(() => {
     if (!window.electronAPI) return
@@ -172,6 +182,9 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <TitleBar />
+      {updateProgress !== null && (
+        <UpdateBar progress={updateProgress} downloaded={updateDownloaded} onInstall={() => window.electronAPI?.installUpdate?.()} onDismiss={() => { setUpdateProgress(null); setUpdateDownloaded(false) }} />
+      )}
       <div className="flex min-h-0 flex-1">
         <Sidebar
           servers={lib.servers} groups={lib.groups} states={states} alerting={alerting} activeServerId={activeServerId}

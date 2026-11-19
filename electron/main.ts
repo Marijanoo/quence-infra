@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import * as path from 'path'
 import * as fs from 'fs'
 import { randomUUID } from 'crypto'
@@ -435,3 +436,28 @@ app.on('window-all-closed', () => {
 })
 
 app.on('activate', () => showWindow())
+
+// Auto-updater: only in installed builds. Releases live on GitHub (same flow as the other Quence apps).
+if (app.isPackaged) {
+  const logFile = fs.createWriteStream(path.join(app.getPath('userData'), 'updater.log'), { flags: 'a' })
+  const log = (level: string, ...a: unknown[]) => logFile.write(`[${new Date().toISOString()}] ${level} ${a.join(' ')}\n`)
+  autoUpdater.logger = { info: (...a: unknown[]) => log('INFO ', ...a), warn: (...a: unknown[]) => log('WARN ', ...a), error: (...a: unknown[]) => log('ERROR', ...a) } as any
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+  if (process.platform === 'darwin') autoUpdater.channel = 'latest'
+  autoUpdater.setFeedURL({ provider: 'github', owner: 'Marijanoo', repo: 'quence-infra' })
+
+  autoUpdater.on('update-available', info => { log('INFO ', 'Update available', info.version); mainWindow?.webContents.send('update-available') })
+  autoUpdater.on('download-progress', info => mainWindow?.webContents.send('update-progress', info.percent))
+  autoUpdater.on('update-downloaded', info => { log('INFO ', 'Update downloaded', info.version); mainWindow?.webContents.send('update-downloaded') })
+  autoUpdater.on('error', err => log('ERROR', err?.message ?? err))
+
+  ipcMain.on('install-update', () => { quitting = true; autoUpdater.quitAndInstall(true, true) })
+
+  app.on('browser-window-created', (_, win) => {
+    win.webContents.once('did-finish-load', () => {
+      setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 3000)
+      setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 4 * 60 * 60 * 1000)
+    })
+  })
+}

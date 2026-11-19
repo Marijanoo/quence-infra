@@ -1,6 +1,6 @@
 {
   "name": "quence-infra",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Infrastructure control center: servers, SSH terminals and live monitoring",
   "author": "Marijanoo",
   "main": "dist-electron/main.js",
@@ -19,16 +19,35 @@
   "build": {
     "appId": "com.quence.infra",
     "productName": "QuenceInfra",
-    "directories": { "output": "dist" },
-    "files": ["dist-electron/**/*", "out/**/*", "package.json", "public/logo.png"],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "out/**/*",
+      "package.json",
+      "public/logo.png"
+    ],
     "mac": {
       "icon": "public/logo.png",
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "target": [
-        { "target": "dmg", "arch": ["arm64", "x64"] },
-        { "target": "zip", "arch": ["arm64", "x64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ]
     },
     "win": {
@@ -36,12 +55,21 @@
       "target": "nsis",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
-    "nsis": { "oneClick": true, "createDesktopShortcut": true, "createStartMenuShortcut": true },
+    "nsis": {
+      "oneClick": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
     "linux": {
       "icon": "public/logo.png",
       "category": "Development",
       "target": "AppImage",
       "artifactName": "${productName}-${version}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Marijanoo",
+      "repo": "quence-infra"
     }
   },
   "dependencies": {
@@ -51,6 +79,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-serve": "^1.1.0",
+    "electron-updater": "^6.8.11",
     "lucide-react": "^0.564.0",
     "next": "16.2.6",
     "next-themes": "^0.4.6",

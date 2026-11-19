@@ -10,7 +10,7 @@ export function Dialog({ title, onClose, children, width = 'max-w-md' }: { title
     return () => window.removeEventListener('keydown', h)
   }, [onClose])
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-6 pt-[8vh]" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-6" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className={`w-full ${width} rounded-xl border border-border bg-popover shadow-2xl`} role="dialog" aria-label={title}>
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">{title}</h2>

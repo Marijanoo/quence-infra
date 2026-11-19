@@ -10,6 +10,10 @@ declare global {
       close: () => void
       zoomIn: () => void
       zoomOut: () => void
+      onUpdateAvailable?: (cb: () => void) => void
+      onUpdateProgress?: (cb: (percent: number) => void) => void
+      onUpdateDownloaded?: (cb: () => void) => void
+      installUpdate?: () => void
       library: {
         get: () => Promise<Library>
         save: (input: ServerInput) => Promise<ServerPublic>
